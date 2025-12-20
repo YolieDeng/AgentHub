@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+
+# 环境变量
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# 日志
+logs/
+*.log
+
+# OS
+.DS_Store
+EOF

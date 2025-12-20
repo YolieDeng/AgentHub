@@ -1,2 +1,10 @@
 # AgentHub
-LangGraph-based intelligent dialogue agent
+
+这是一个**生产级别的 AI Agent 后端模板**，提供：
+
+- 基于 LangGraph 的智能对话 Agent
+- 完整的用户认证和会话管理
+- 长期记忆系统（语义搜索）
+- 多模型支持与自动故障转移
+- 全面的监控和可观测性
+- Docker 一键部署
