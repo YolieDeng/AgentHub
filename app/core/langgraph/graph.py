@@ -324,6 +324,49 @@ class LangGraphAgent:
                 )
         logger.info("chat_history_cleared", session_id=session_id)
 
+    async def get_sessions(self, user_id: str) -> List[dict]:
+        """获取用户的所有会话列表"""
+        conn_pool = await self._get_connection_pool()
+        async with conn_pool.connection() as conn:
+            # 查询 checkpoints 表获取所有会话
+            # metadata 中存储了 user_id
+            cursor = await conn.execute(
+                """
+                SELECT DISTINCT thread_id,
+                       (metadata::json->>'user_id') as user_id,
+                       thread_ts
+                FROM checkpoints
+                WHERE metadata::json->>'user_id' = %s
+                ORDER BY thread_ts DESC
+                """,
+                (user_id,)
+            )
+            rows = await cursor.fetchall()
+
+            sessions = []
+            for row in rows:
+                session_id = row[0]
+                # 获取会话的第一条消息作为标题
+                title = await self._get_session_title(session_id)
+                sessions.append({
+                    "id": session_id,
+                    "title": title,
+                })
+
+            return sessions
+
+    async def _get_session_title(self, session_id: str) -> Optional[str]:
+        """获取会话标题（第一条用户消息）"""
+        try:
+            messages = await self.get_history(session_id)
+            for msg in messages:
+                if msg.role == "user":
+                    # 取前30个字符作为标题
+                    return msg.content[:30] if len(msg.content) > 30 else msg.content
+            return None
+        except Exception:
+            return None
+
 
 # 创建全局 Agent 实例
 agent = LangGraphAgent()

@@ -81,10 +81,10 @@ class DatabaseService:
 
     # ============ 会话操作 ============
 
-    def create_chat_session(self, user_id: UUID, title: str = None) -> ChatSession:
+    def create_chat_session(self, user_id: UUID, session_id: str, title: str = None) -> ChatSession:
         """创建聊天会话"""
         with Session(self.engine, expire_on_commit=False) as session:
-            chat_session = ChatSession(user_id=user_id, title=title)
+            chat_session = ChatSession(id=UUID(session_id), user_id=user_id, title=title)
             session.add(chat_session)
             session.commit()
             session.refresh(chat_session)
@@ -92,10 +92,23 @@ class DatabaseService:
             return chat_session
 
     def get_user_sessions(self, user_id: UUID) -> List[ChatSession]:
-        """获取用户的所有会话"""
+        """获取用户的所有会话（按创建时间倒序）"""
         with Session(self.engine, expire_on_commit=False) as session:
-            statement = select(ChatSession).where(ChatSession.user_id == user_id)
+            statement = (
+                select(ChatSession)
+                .where(ChatSession.user_id == user_id)
+                .order_by(ChatSession.created_at.desc())
+            )
             return list(session.exec(statement).all())
+
+    def delete_chat_session(self, session_id: UUID) -> None:
+        """删除聊天会话"""
+        with Session(self.engine) as session:
+            chat_session = session.get(ChatSession, session_id)
+            if chat_session:
+                session.delete(chat_session)
+                session.commit()
+                logger.info("chat_session_deleted", session_id=str(session_id))
 
 
 # 创建全局数据库服务实例

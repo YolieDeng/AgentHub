@@ -2,6 +2,7 @@
 
 import uuid
 from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 from app.core.langgraph.graph import agent
 from app.core.logging import logger
 from app.models.user import User
+from app.services.database import db
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/chat", tags=["聊天"])
@@ -33,15 +35,51 @@ class HistoryResponse(BaseModel):
     messages: list
 
 
+class SessionItem(BaseModel):
+    """会话项"""
+    id: str
+    title: Optional[str] = None
+
+
+class SessionsResponse(BaseModel):
+    """会话列表响应"""
+    sessions: list[SessionItem]
+
+
+@router.get("/sessions", response_model=SessionsResponse)
+async def get_sessions(
+    current_user: User = Depends(get_current_user),
+):
+    """获取用户的所有会话列表"""
+    try:
+        sessions = db.get_user_sessions(current_user.id)
+        return SessionsResponse(
+            sessions=[SessionItem(id=str(s.id), title=s.title) for s in sessions]
+        )
+    except Exception as e:
+        logger.error("get_sessions_failed", error=str(e))
+        raise HTTPException(status_code=500, detail="获取会话列表失败")
+
+
 @router.post("", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
     current_user: User = Depends(get_current_user),
 ):
     """发送消息并获取回复"""
+    is_new_session = request.session_id is None
     session_id = request.session_id or str(uuid.uuid4())
 
     try:
+        # 如果是新会话，先创建会话记录
+        if is_new_session:
+            title = request.message[:30] if len(request.message) > 30 else request.message
+            db.create_chat_session(
+                user_id=current_user.id,
+                session_id=session_id,
+                title=title,
+            )
+
         response = await agent.chat(
             message=request.message,
             session_id=session_id,
@@ -67,9 +105,21 @@ async def chat_stream(
     current_user: User = Depends(get_current_user),
 ):
     """流式聊天"""
+    is_new_session = request.session_id is None
     session_id = request.session_id or str(uuid.uuid4())
 
+    # 如果是新会话，先创建会话记录
+    if is_new_session:
+        title = request.message[:30] if len(request.message) > 30 else request.message
+        db.create_chat_session(
+            user_id=current_user.id,
+            session_id=session_id,
+            title=title,
+        )
+
     async def generate():
+        # 先发送 session_id
+        yield f"data: session_id:{session_id}\n\n"
         try:
             async for token in agent.chat_stream(
                 message=request.message,
@@ -117,7 +167,10 @@ async def clear_history(
 ):
     """清除对话历史"""
     try:
+        # 删除 LangGraph 的会话历史
         await agent.clear_history(session_id)
+        # 删除数据库中的会话记录
+        db.delete_chat_session(UUID(session_id))
         return {"message": "历史已清除"}
     except Exception as e:
         logger.error("clear_history_failed", error=str(e))
