@@ -60,7 +60,7 @@ class DatabaseService:
 
     def create_user(self, email: str, hashed_password: str) -> User:
         """创建用户"""
-        with self.get_session() as session:
+        with Session(self.engine, expire_on_commit=False) as session:
             user = User(email=email, hashed_password=hashed_password)
             session.add(user)
             session.commit()
@@ -70,20 +70,20 @@ class DatabaseService:
 
     def get_user_by_email(self, email: str) -> Optional[User]:
         """通过邮箱获取用户"""
-        with self.get_session() as session:
+        with Session(self.engine, expire_on_commit=False) as session:
             statement = select(User).where(User.email == email)
             return session.exec(statement).first()
 
     def get_user_by_id(self, user_id: UUID) -> Optional[User]:
         """通过 ID 获取用户"""
-        with self.get_session() as session:
+        with Session(self.engine, expire_on_commit=False) as session:
             return session.get(User, user_id)
 
     # ============ 会话操作 ============
 
     def create_chat_session(self, user_id: UUID, title: str = None) -> ChatSession:
         """创建聊天会话"""
-        with self.get_session() as session:
+        with Session(self.engine, expire_on_commit=False) as session:
             chat_session = ChatSession(user_id=user_id, title=title)
             session.add(chat_session)
             session.commit()
@@ -93,7 +93,7 @@ class DatabaseService:
 
     def get_user_sessions(self, user_id: UUID) -> List[ChatSession]:
         """获取用户的所有会话"""
-        with self.get_session() as session:
+        with Session(self.engine, expire_on_commit=False) as session:
             statement = select(ChatSession).where(ChatSession.user_id == user_id)
             return list(session.exec(statement).all())
 

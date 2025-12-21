@@ -44,6 +44,7 @@ class LangGraphAgent:
     def __init__(self):
         self._connection_pool: Optional[AsyncConnectionPool] = None
         self._graph: Optional[CompiledStateGraph] = None
+        self._memory: Optional[AsyncMemory] = None
 
         # 绑定工具到 LLM
         self.llm_service = llm_service

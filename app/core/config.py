@@ -76,7 +76,7 @@ class Settings:
         self.PROJECT_NAME = os.getenv("PROJECT_NAME", "AI Agent")
         self.VERSION = os.getenv("VERSION", "1.0.0")
         self.DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
-        self.API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
+        self.API_STR = os.getenv("API_STR", "/api")
 
         # CORS
         self.ALLOWED_ORIGINS = parse_list_from_env("ALLOWED_ORIGINS", ["*"])

@@ -60,8 +60,8 @@ async def health():
 
 
 # 注册路由
-app.include_router(auth.router, prefix=settings.API_V1_STR)
-app.include_router(chat.router, prefix=settings.API_V1_STR)
+app.include_router(auth.router, prefix=settings.API_STR)
+app.include_router(chat.router, prefix=settings.API_STR)
 
 
 # 根路径
