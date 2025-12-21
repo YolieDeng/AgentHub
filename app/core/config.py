@@ -92,12 +92,12 @@ class Settings:
 
         # Ollama 配置
         self.OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "qwen2.5:7b")
+        self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "qwen:7b")
         self.DEFAULT_LLM_TEMPERATURE = float(os.getenv("DEFAULT_LLM_TEMPERATURE", "0.7"))
         self.MAX_TOKENS = int(os.getenv("MAX_TOKENS", "4096"))
 
         # 长期记忆
-        self.LONG_TERM_MEMORY_MODEL = os.getenv("LONG_TERM_MEMORY_MODEL", "qwen2.5:7b")
+        self.LONG_TERM_MEMORY_MODEL = os.getenv("LONG_TERM_MEMORY_MODEL", "qwen:7b")
         self.LONG_TERM_MEMORY_EMBEDDER_MODEL = os.getenv(
             "LONG_TERM_MEMORY_EMBEDDER_MODEL", "nomic-embed-text"
         )
