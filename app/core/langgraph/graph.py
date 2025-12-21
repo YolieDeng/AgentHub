@@ -5,7 +5,6 @@ from typing import AsyncGenerator, Optional, List
 from urllib.parse import quote_plus
 
 from langchain_core.messages import (
-    BaseMessage,
     SystemMessage,
     HumanMessage,
     AIMessage,
@@ -23,6 +22,7 @@ from app.core.langgraph.tools import tools
 from app.schemas import GraphState, Message
 from app.services.llm import llm_service
 
+from mem0 import AsyncMemory
 
 # 系统提示词
 SYSTEM_PROMPT = """你是一个智能助手。请根据用户的问题提供有帮助的回答。
@@ -159,22 +159,84 @@ class LangGraphAgent:
         logger.info("langgraph_compiled")
         return self._graph
 
+    async def _get_memory(self) -> AsyncMemory:
+        """获取长期记忆实例"""
+        if self._memory is None:
+            self._memory = await AsyncMemory.from_config(
+                config_dict={
+                    "vector_store": {
+                        "provider": "pgvector",
+                        "config": {
+                            "collection_name": settings.LONG_TERM_MEMORY_COLLECTION_NAME,
+                            "dbname": settings.POSTGRES_DB,
+                            "user": settings.POSTGRES_USER,
+                            "password": settings.POSTGRES_PASSWORD,
+                            "host": settings.POSTGRES_HOST,
+                            "port": settings.POSTGRES_PORT,
+                        },
+                    },
+                    "llm": {
+                        "provider": "ollama",
+                        "config": {
+                            "model": settings.LONG_TERM_MEMORY_MODEL,
+                            "ollama_base_url": settings.OLLAMA_BASE_URL,
+                        },
+                    },
+                    "embedder": {
+                        "provider": "ollama",
+                        "config": {
+                            "model": settings.LONG_TERM_MEMORY_EMBEDDER_MODEL,
+                            "ollama_base_url": settings.OLLAMA_BASE_URL,
+                        },
+                    },
+                }
+            )
+            logger.info("long_term_memory_initialized")
+        return self._memory
+
+    async def get_relevant_memories(self, user_id: str, query: str) -> str:
+        """检索相关记忆"""
+        try:
+            memory = await self._get_memory()
+            results = await memory.search(user_id=user_id, query=query)
+
+            if not results.get("results"):
+                return ""
+
+            memories = [f"- {r['memory']}" for r in results["results"]]
+            return "用户相关信息：\n" + "\n".join(memories)
+        except Exception as e:
+            logger.error("memory_search_failed", error=str(e))
+            return ""
+
+    async def save_memory(self, user_id: str, messages: list) -> None:
+        """保存对话到长期记忆"""
+        try:
+            memory = await self._get_memory()
+            await memory.add(messages, user_id=user_id)
+            logger.info("memory_saved", user_id=user_id)
+        except Exception as e:
+            logger.error("memory_save_failed", error=str(e))
+
     async def chat(
         self,
         message: str,
         session_id: str,
         user_id: Optional[str] = None,
-        long_term_memory: str = "",
     ) -> str:
-        """发送消息并获取回复"""
+        """发送消息并获取回复（带长期记忆）"""
         graph = await self.create_graph()
+
+        # 获取相关记忆
+        long_term_memory = ""
+        if user_id:
+            long_term_memory = await self.get_relevant_memories(user_id, message)
 
         config = {
             "configurable": {"thread_id": session_id},
             "metadata": {"user_id": user_id},
         }
 
-        # 构建输入
         input_state = {
             "messages": [HumanMessage(content=message)],
             "long_term_memory": long_term_memory,
@@ -183,12 +245,23 @@ class LangGraphAgent:
         # 执行图
         result = await graph.ainvoke(input_state, config)
 
-        # 提取最后一条 AI 消息
+        # 提取回复
+        response_content = ""
         for msg in reversed(result["messages"]):
             if isinstance(msg, AIMessage) and msg.content:
-                return msg.content
+                response_content = msg.content
+                break
 
-        return "抱歉，我无法生成回复。"
+        # 异步保存记忆
+        if user_id and response_content:
+            asyncio.create_task(
+                self.save_memory(user_id, [
+                    {"role": "user", "content": message},
+                    {"role": "assistant", "content": response_content},
+                ])
+            )
+
+        return response_content or "抱歉，我无法生成回复。"
 
     async def chat_stream(
         self,
