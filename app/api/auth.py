@@ -1,39 +1,14 @@
 """认证 API"""
 
 from fastapi import APIRouter, HTTPException, status, Depends
-from pydantic import BaseModel, EmailStr
 
 from app.core.logging import logger
 from app.models.user import User
+from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserResponse
 from app.services.database import db
 from app.utils.auth import create_access_token, get_current_user
 
 router = APIRouter(prefix="/auth", tags=["认证"])
-
-
-class RegisterRequest(BaseModel):
-    """注册请求"""
-    email: EmailStr
-    password: str
-
-
-class LoginRequest(BaseModel):
-    """登录请求"""
-    email: EmailStr
-    password: str
-
-
-class TokenResponse(BaseModel):
-    """令牌响应"""
-    access_token: str
-    token_type: str = "bearer"
-
-
-class UserResponse(BaseModel):
-    """用户信息响应"""
-    id: str
-    email: str
-    is_active: bool
 
 
 @router.post("/register", response_model=TokenResponse)

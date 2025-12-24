@@ -1,49 +1,25 @@
 """聊天 API"""
 
 import uuid
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 
 from app.core.langgraph.graph import agent
 from app.core.logging import logger
 from app.models.user import User
+from app.schemas.chat import (
+    ChatRequest,
+    ChatResponse,
+    HistoryResponse,
+    SessionItem,
+    SessionsResponse,
+)
 from app.services.database import db
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/chat", tags=["聊天"])
-
-
-class ChatRequest(BaseModel):
-    """聊天请求"""
-    message: str
-    session_id: Optional[str] = None
-
-
-class ChatResponse(BaseModel):
-    """聊天响应"""
-    message: str
-    session_id: str
-
-
-class HistoryResponse(BaseModel):
-    """历史响应"""
-    session_id: str
-    messages: list
-
-
-class SessionItem(BaseModel):
-    """会话项"""
-    id: str
-    title: Optional[str] = None
-
-
-class SessionsResponse(BaseModel):
-    """会话列表响应"""
-    sessions: list[SessionItem]
 
 
 @router.get("/sessions", response_model=SessionsResponse)
