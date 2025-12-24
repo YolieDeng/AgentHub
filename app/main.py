@@ -1,5 +1,7 @@
 """FastAPI 主应用"""
 
+import importlib
+import pkgutil
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging import logger
 from app.services.database import db
-from app.api import auth, chat
+import app.api as api_package
 
 
 @asynccontextmanager
@@ -59,9 +61,11 @@ async def health():
     }
 
 
-# 注册路由
-app.include_router(auth.router, prefix=settings.API_STR)
-app.include_router(chat.router, prefix=settings.API_STR)
+# 自动注册路由 - 扫描 app/api/ 下所有模块
+for module_info in pkgutil.iter_modules(api_package.__path__):
+    module = importlib.import_module(f"app.api.{module_info.name}")
+    if hasattr(module, "router"):
+        app.include_router(module.router, prefix=settings.API_STR)
 
 
 # 根路径
